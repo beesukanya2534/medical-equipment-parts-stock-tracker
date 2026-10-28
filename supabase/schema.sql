@@ -89,3 +89,22 @@ insert into public.items (id, no, name, category, unit) values
 ('i21', 21, 'Corrugate C2 สายยาว', 'เครื่องช่วยหายใจ C2', 'เส้น');
 
 -- Add staff: insert into public.staff (email) values ('someone@example.com');
+
+-- Heartbeat touched by a scheduled ping (.github/workflows/keep-alive.yml) so the free
+-- project is not paused for inactivity. Kept apart from stock data so the ledger never gets fake entries.
+create table public.heartbeat (
+  id integer primary key default 1 check (id = 1),
+  last_ping timestamptz not null default now(),
+  pings bigint not null default 0
+);
+alter table public.heartbeat enable row level security;
+insert into public.heartbeat (id) values (1);
+revoke all on public.heartbeat from anon, authenticated;
+
+create or replace function public.ping() returns timestamptz
+language sql volatile security definer set search_path = ''
+as $$
+  update public.heartbeat set last_ping = now(), pings = pings + 1 where id = 1 returning last_ping
+$$;
+revoke all on function public.ping() from public;
+grant execute on function public.ping() to anon, authenticated;

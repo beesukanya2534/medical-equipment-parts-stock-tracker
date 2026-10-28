@@ -48,6 +48,10 @@
 1. ที่ Supabase Dashboard ไปที่ **Authentication → Users → Add user → Create new user** ใส่อีเมลและรหัสผ่าน แล้วติ๊ก Auto Confirm
 2. ไปที่ **Table Editor → staff → Insert row** แล้วใส่อีเมลเดียวกันเป็นตัวพิมพ์เล็ก
 
+### กันโปรเจคหยุดทำงาน
+
+Supabase แบบฟรีจะหยุด project ชั่วคราวถ้าไม่มีการใช้งานประมาณ 1 สัปดาห์ GitHub Action [keep-alive.yml](.github/workflows/keep-alive.yml) จึงส่ง ping ทุก 3 วัน ping นี้อัปเดตแค่ตาราง `heartbeat` ไม่แตะข้อมูลคลัง ประวัติจึงไม่มีรายการปลอม ถ้าจะสั่งรันเองให้ไปที่แท็บ **Actions → Keep Supabase awake → Run workflow**
+
 แนะนำให้ปิดการสมัครสมาชิกเองที่ **Authentication → Sign In / Providers → Allow new users to sign up** ถึงจะไม่ปิด คนที่สมัครเองก็ยังเข้าถึงข้อมูลไม่ได้ ถ้าอีเมลไม่อยู่ในตาราง `staff`
 
 ### โครงสร้างข้อมูล

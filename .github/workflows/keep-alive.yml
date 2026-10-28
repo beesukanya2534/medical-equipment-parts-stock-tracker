@@ -1,0 +1,22 @@
+# Pings Supabase every 3 days so the free project is not paused for inactivity.
+# It only updates public.heartbeat; stock data is never touched.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 1 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: https://uyzunajfjmbgcfjthihm.supabase.co
+          SUPABASE_KEY: sb_publishable_wkqBWhuJuTQGbKRI9eYPWQ_zg3_th-O
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'
