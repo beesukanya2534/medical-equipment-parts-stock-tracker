@@ -108,3 +108,25 @@ as $$
 $$;
 revoke all on function public.ping() from public;
 grant execute on function public.ping() to anon, authenticated;
+
+-- Later change: the owner chose no login. Anyone with the site link can read and record stock.
+-- Items still cannot be deleted (only hidden), so history stays intact.
+drop policy "staff read items" on public.items;
+drop policy "staff add items" on public.items;
+drop policy "staff edit items" on public.items;
+drop policy "staff read txns" on public.txns;
+drop policy "staff add txns" on public.txns;
+drop policy "staff delete txns" on public.txns;
+
+create policy "anyone read items" on public.items for select to anon, authenticated using (true);
+create policy "anyone add items" on public.items for insert to anon, authenticated with check (true);
+create policy "anyone edit items" on public.items for update to anon, authenticated using (true) with check (true);
+create policy "anyone read txns" on public.txns for select to anon, authenticated using (true);
+create policy "anyone add txns" on public.txns for insert to anon, authenticated with check (true);
+create policy "anyone delete txns" on public.txns for delete to anon, authenticated using (true);
+
+grant select, insert, update on public.items to anon;
+grant select, insert, delete on public.txns to anon;
+
+-- Free-text name of whoever recorded the movement (no accounts any more)
+alter table public.txns add column recorder text not null default '' check (char_length(recorder) <= 60);

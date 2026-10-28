@@ -209,12 +209,6 @@ textarea.field { height: auto; min-height: 64px; padding: 8px 10px; resize: vert
 .toast { background: var(--surface-2); color: var(--ink); border: 1px solid var(--accent); box-shadow: var(--glow); }
 th { background: var(--surface-2); color: var(--accent); }
 
-/* login */
-.login { display: flex; justify-content: center; padding-block: 4vh; }
-.login-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: 14px; border: 1px solid var(--line-hi); background: linear-gradient(180deg, var(--surface-2), var(--surface)); box-shadow: var(--shadow), 0 0 40px rgba(34,211,238,.08); }
-.login-card h2 { margin: 0; font-family: var(--f-display); font-size: 24px; }
-.login-sub { margin: 0; color: var(--muted); font-size: 14px; }
-.login-card .btn.primary { height: 44px; justify-content: center; }
 .banner-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .banner-row .acts-b { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -261,24 +255,6 @@ th { background: var(--surface-2); color: var(--accent); }
 
   <div class="banner" id="banner" hidden></div>
   <div class="alertbar" id="reorderBar" hidden></div>
-
-  <section id="loginView" class="login" hidden>
-    <form id="loginForm" class="login-card" novalidate>
-      <div class="eyebrow">Supabase</div>
-      <h2>เข้าสู่ระบบ</h2>
-      <div id="lgFields" style="display:flex;flex-direction:column;gap:12px">
-        <p class="login-sub">ใช้บัญชีเจ้าหน้าที่ที่ผู้ดูแลสร้างให้</p>
-        <label class="lbl">อีเมล<input class="field" id="lgEmail" type="email" autocomplete="username" required></label>
-        <label class="lbl">รหัสผ่าน<input class="field" id="lgPass" type="password" autocomplete="current-password" required></label>
-        <div class="err" id="lgErr" hidden></div>
-        <button class="btn primary" type="submit" id="lgBtn">เข้าสู่ระบบ</button>
-      </div>
-      <div id="lgDenied" hidden style="display:flex;flex-direction:column;gap:12px">
-        <p class="login-sub">บัญชี <strong id="lgWho"></strong> ยังไม่มีสิทธิ์ใช้งานคลังนี้ ให้ผู้ดูแลเพิ่มอีเมลนี้ในตาราง staff ของ Supabase</p>
-        <button class="btn" type="button" data-logout>ออกจากระบบ</button>
-      </div>
-    </form>
-  </section>
 
   <div id="appMain" style="display:flex;flex-direction:column;gap:18px">
   <section class="stats" id="stats" aria-label="สรุปคลัง"></section>
@@ -391,27 +367,17 @@ th { background: var(--surface-2); color: var(--accent); }
       off: ['off', 'ไม่ได้เชื่อมต่อฐานข้อมูล'],
       local: ['live', 'บันทึกในเครื่องนี้'],
       supa: ['live', 'ข้อมูลออนไลน์ · อัปเดตสดทุกเครื่อง'],
-      login: ['off', 'ยังไม่ได้เข้าสู่ระบบ'],
-      denied: ['off', 'ไม่มีสิทธิ์ใช้งาน'],
     };
     const [cls, txt] = map[S.conn];
     el.innerHTML = `<span class="dot ${cls}"></span><span>${esc(txt)}</span>`;
-    const gate = S.conn === 'login' || S.conn === 'denied';
-    $('#loginView').hidden = !gate;
-    $('#appMain').hidden = gate;
-    $('#lgFields').hidden = S.conn !== 'login';
-    $('#lgDenied').hidden = S.conn !== 'denied';
-    $('#lgWho').textContent = S.email || '';
     const ban = $('#banner');
     const backupBtns = '<button class="btn" type="button" data-backup>สำรองข้อมูล</button><button class="btn" type="button" data-restore>นำเข้าไฟล์สำรอง</button>';
     if (S.conn === 'supa') {
       ban.hidden = false;
-      ban.innerHTML = `<div class="banner-row"><span><strong>ข้อมูลออนไลน์บน Supabase</strong> · เข้าสู่ระบบในชื่อ ${esc(S.email || '')}</span><span class="acts-b">${backupBtns}<button class="btn ghost" type="button" data-logout>ออกจากระบบ</button></span></div>`;
+      ban.innerHTML = `<div class="banner-row"><span><strong>ข้อมูลออนไลน์บน Supabase</strong> · ทุกเครื่องที่เปิดลิงก์นี้เห็นยอดเดียวกัน</span><span class="acts-b">${backupBtns}</span></div>`;
     } else if (S.conn === 'local') {
       ban.hidden = false;
       ban.innerHTML = `<div class="banner-row"><span><strong>ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</strong> · ไม่แชร์ข้ามเครื่อง ถ้าล้างประวัติเบราว์เซอร์ข้อมูลจะหาย ควรกดสำรองข้อมูลเป็นประจำ</span><span class="acts-b">${backupBtns}</span></div>`;
-    } else if (gate) {
-      ban.hidden = true;
     } else if (S.conn === 'off') {
       ban.hidden = false;
       ban.innerHTML = '<strong>ยังบันทึกข้อมูลไม่ได้</strong> — เปิดหน้านี้ใน claude.ai และลงชื่อเข้าใช้ เพื่อดูและบันทึกยอดคลังที่ใช้ร่วมกัน';
@@ -518,6 +484,9 @@ th { background: var(--surface-2); color: var(--accent); }
     if (t.type === 'out') return `<span class="qty-out">−${fmtN(q)}</span>`;
     return `<span class="qty-adj">${q > 0 ? '+' : q < 0 ? '−' : '±'}${fmtN(Math.abs(q))}</span>`;
   }
+  const REC_KEY = 'medstock.recorder';
+  const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
   const userCell = (id) => id ? `<span data-uid="${esc(id)}">…</span>` : '<span class="sub">—</span>';
 
   function renderHistory() {
@@ -542,7 +511,7 @@ th { background: var(--surface-2); color: var(--accent); }
         <td><span class="pill t-${esc(t.type)}">${TYPE[t.type] || esc(t.type)}</span></td>
         <td class="r">${qtyCell(t)}${t.type === 'adj' && t.counted != null ? `<div class="sub">นับได้ ${fmtN(t.counted)}</div>` : ''}</td>
         <td>${esc(t.ward || '—')}</td>
-        <td>${userCell(t.by)}</td>
+        <td>${t.recorder ? esc(t.recorder) : userCell(t.by)}</td>
         <td>${esc(t.note || '')}</td>
         <td class="r">${S.canWrite ? `<button class="btn ghost danger" style="height:30px;padding:0 10px" type="button" data-deltx="${esc(t.id)}">ลบ</button>` : ''}</td>
       </tr>`;
@@ -617,6 +586,7 @@ th { background: var(--surface-2); color: var(--accent); }
           <label class="lbl">วันเวลา<input class="field" id="txAt" type="datetime-local" value="${toLocalInput(Date.now())}"></label>
           <label class="lbl">หมายเหตุ<input class="field" id="txNote" autocomplete="off" placeholder="เช่น เลขที่ใบเบิก"></label>
         </div>
+        <label class="lbl">ผู้บันทึก<input class="field" id="txRec" autocomplete="name" placeholder="ชื่อผู้บันทึก" value="${esc(lsGet(REC_KEY))}"></label>
       </form>
       <div class="m-f"><div class="right"><button class="btn" type="button" data-close>ยกเลิก</button><button class="btn primary" type="button" id="txSave">บันทึก</button></div></div>`);
     const qty = $('#txQty', m);
@@ -648,10 +618,11 @@ th { background: var(--surface-2); color: var(--accent); }
       const btn = $('#txSave', m); btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
       const n = Math.floor(Number(qty.value));
       const atV = $('#txAt', m).value; const at = atV ? new Date(atV).getTime() : Date.now();
-      const doc = { itemId, type: t, qty: t === 'adj' ? n - cur : n, ward: $('#txWard', m).value.trim().slice(0, 120), note: $('#txNote', m).value.trim().slice(0, 300), by: S.me || null, at: Number.isFinite(at) ? at : Date.now(), createdAt: Date.now() };
+      const doc = { itemId, type: t, qty: t === 'adj' ? n - cur : n, ward: $('#txWard', m).value.trim().slice(0, 120), note: $('#txNote', m).value.trim().slice(0, 300), recorder: $('#txRec', m).value.trim().slice(0, 60), by: S.me || null, at: Number.isFinite(at) ? at : Date.now(), createdAt: Date.now() };
       if (t === 'adj') doc.counted = n;
       try {
         await S.db.collection('txns').add(doc);
+        lsSet(REC_KEY, doc.recorder);
         closeModal();
         toast(t === 'in' ? `เติม ${it.name} ${fmtN(n)} ${it.unit || ''} แล้ว` : t === 'out' ? `ตัดจ่าย ${it.name} ${fmtN(n)} ${it.unit || ''} แล้ว` : `บันทึกยอดตรวจนับ ${it.name} = ${fmtN(n)} แล้ว`);
       } catch (e) {
@@ -730,7 +701,7 @@ th { background: var(--surface-2); color: var(--accent); }
     const lines = rows.map(t => {
       const q = Number(t.qty) || 0;
       run += t.type === 'out' ? -q : q;
-      return `<tr><td class="num">${esc(dtf.format(t.at))}</td><td class="r">${t.type === 'in' ? `<span class="qty-in">${fmtN(q)}</span>` : t.type === 'adj' && q > 0 ? `<span class="qty-adj">+${fmtN(q)}</span>` : ''}</td><td class="r">${t.type === 'out' ? `<span class="qty-out">${fmtN(q)}</span>` : t.type === 'adj' && q < 0 ? `<span class="qty-adj">${fmtN(-q)}</span>` : ''}</td><td class="r"><b>${fmtN(run)}</b></td><td>${esc(t.ward || '—')}${t.type === 'adj' ? '<div class="sub">ตรวจนับ</div>' : ''}</td><td>${userCell(t.by)}</td><td>${esc(t.note || '')}</td></tr>`;
+      return `<tr><td class="num">${esc(dtf.format(t.at))}</td><td class="r">${t.type === 'in' ? `<span class="qty-in">${fmtN(q)}</span>` : t.type === 'adj' && q > 0 ? `<span class="qty-adj">+${fmtN(q)}</span>` : ''}</td><td class="r">${t.type === 'out' ? `<span class="qty-out">${fmtN(q)}</span>` : t.type === 'adj' && q < 0 ? `<span class="qty-adj">${fmtN(-q)}</span>` : ''}</td><td class="r"><b>${fmtN(run)}</b></td><td>${esc(t.ward || '—')}${t.type === 'adj' ? '<div class="sub">ตรวจนับ</div>' : ''}</td><td>${t.recorder ? esc(t.recorder) : userCell(t.by)}</td><td>${esc(t.note || '')}</td></tr>`;
     }).reverse().join('');
     const m = openModal(`
       <div class="m-h"><div><div class="eyebrow">บัตรคุมวัสดุ · ลำดับ ${esc(it.no)}</div><h3>${esc(it.name)}</h3><div class="sub">${esc(it.category || '')} · หน่วยนับ ${esc(it.unit || '-')} · จุดสั่งซื้อ ${fmtN(it.min || 0)}</div></div><button class="x" type="button" data-close aria-label="ปิด">×</button></div>
@@ -775,7 +746,7 @@ th { background: var(--surface-2); color: var(--accent); }
     const ids = [...new Set(list.map(t => t.by).filter(Boolean))];
     const ps = S.user && ids.length ? await S.user.profiles(ids) : {};
     const rows = [['วันเวลา', 'ลำดับ', 'รายการ', 'ประเภท', 'จำนวน', 'หน่วย', 'หน่วยงาน', 'ผู้บันทึก', 'หมายเหตุ']];
-    for (const t of list) { const it = itemById(t.itemId) || {}; rows.push([dtf.format(t.at), it.no || '', it.name || '', TYPE[t.type] || t.type, t.type === 'out' ? -t.qty : t.qty, it.unit || '', t.ward || '', (t.by && ps[t.by] && ps[t.by].name) || (S.conn === 'supa' ? t.by || '' : ''), t.note || '']); }
+    for (const t of list) { const it = itemById(t.itemId) || {}; rows.push([dtf.format(t.at), it.no || '', it.name || '', TYPE[t.type] || t.type, t.type === 'out' ? -t.qty : t.qty, it.unit || '', t.ward || '', t.recorder || (t.by && ps[t.by] && ps[t.by].name) || (S.conn === 'supa' ? t.by || '' : ''), t.note || '']); }
     offerCsv(`stock-history-${ymd()}.csv`, toCsv(rows));
   }
 
@@ -795,9 +766,7 @@ th { background: var(--surface-2); color: var(--accent); }
     if (el.closest('#btnExportStock')) { exportStock(); return; }
     if (el.closest('#btnExportHist')) { exportHist(); return; }
     if (el.closest('[data-backup]')) { backup(); return; }
-    if (el.closest('[data-restore]')) { $('#restoreFile').click(); return; }
-    if (el.closest('[data-logout]')) { try { await S.sb.auth.signOut(); } catch {} location.reload(); return; }
-    const del = el.closest('[data-deltx]');
+    if (el.closest('[data-restore]')) { $('#restoreFile').click(); return; }    const del = el.closest('[data-deltx]');
     if (del) {
       if (!del.classList.contains('arm')) { del.classList.add('arm'); del.textContent = 'ยืนยันลบ'; setTimeout(() => { if (del.isConnected) { del.classList.remove('arm'); del.textContent = 'ลบ'; } }, 4000); return; }
       del.disabled = true;
@@ -910,9 +879,9 @@ th { background: var(--surface-2); color: var(--accent); }
     const loaded = { items: false, txns: false };
     const ms = (v) => v ? Date.parse(v) : Date.now();
     const toItem = (r) => ({ no: r.no, name: r.name, category: r.category, unit: r.unit, min: r.min, archived: r.archived, createdAt: ms(r.created_at) });
-    const toTxn = (r) => ({ itemId: r.item_id, type: r.type, qty: r.qty, counted: r.counted, ward: r.ward, note: r.note, by: r.by_email || null, at: ms(r.at), createdAt: ms(r.created_at) });
+    const toTxn = (r) => ({ itemId: r.item_id, type: r.type, qty: r.qty, counted: r.counted, ward: r.ward, note: r.note, recorder: r.recorder || '', by: r.by_email || null, at: ms(r.at), createdAt: ms(r.created_at) });
     const fromItem = (d) => { const o = {}; for (const k of ['no', 'name', 'category', 'unit', 'min', 'archived']) if (k in d) o[k] = d[k]; if (d.createdAt) o.created_at = new Date(d.createdAt).toISOString(); return o; };
-    const fromTxn = (d) => ({ item_id: d.itemId, type: d.type, qty: d.qty, counted: d.counted ?? null, ward: d.ward || '', note: d.note || '', at: new Date(d.at || Date.now()).toISOString() });
+    const fromTxn = (d) => ({ item_id: d.itemId, type: d.type, qty: d.qty, counted: d.counted ?? null, ward: d.ward || '', note: d.note || '', recorder: (d.recorder || '').slice(0, 60), at: new Date(d.at || Date.now()).toISOString() });
     const conv = { items: [toItem, fromItem], txns: [toTxn, fromTxn] };
     const snap = (col) => ({ docs: [...rows[col]].map(([id, d]) => ({ id, exists: true, data: () => d })) });
     const emit = (col) => { if (loaded[col]) subs[col].forEach(fn => fn(snap(col))); };
@@ -965,31 +934,9 @@ th { background: var(--surface-2); color: var(--accent); }
 
   async function startSupa() {
     try { await loadScript(SUPA_JS); } catch { S.conn = 'off'; render(); return; }
-    const sb = window.supabase.createClient(SUPA.url, SUPA.key);
-    S.sb = sb;
-    const enter = async (session) => {
-      if (!session) { S.conn = 'login'; S.email = null; render(); return; }
-      S.email = session.user.email;
-      const { data: ok, error } = await sb.rpc('is_staff');
-      if (error || !ok) { S.conn = 'denied'; render(); return; }
-      if (!S.db) { S.db = supaDb(sb); subscribe(S.db); }
-      S.conn = 'supa'; S.canWrite = true; render();
-    };
-    sb.auth.onAuthStateChange((evt, session) => {
-      if (evt === 'INITIAL_SESSION' || evt === 'SIGNED_IN' || evt === 'SIGNED_OUT') setTimeout(() => enter(session));
-    });
-    $('#loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (S.conn !== 'login') return;
-      const email = $('#lgEmail').value.trim(), password = $('#lgPass').value;
-      const er = $('#lgErr'), btn = $('#lgBtn');
-      if (!email || !password) { er.hidden = false; er.textContent = 'ใส่อีเมลและรหัสผ่าน'; return; }
-      btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ…'; er.hidden = true;
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
-      if (error) { er.hidden = false; er.textContent = /invalid/i.test(error.message) ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : 'เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง'; }
-      else $('#lgPass').value = '';
-    });
+    const sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { persistSession: false, autoRefreshToken: false } });
+    S.db = supaDb(sb); subscribe(S.db);
+    S.conn = 'supa'; S.canWrite = true; render();
   }
 
   render();
