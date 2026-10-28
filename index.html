@@ -296,6 +296,7 @@ th { background: var(--surface-2); color: var(--accent); }
 </div>
 
 <div id="modalRoot"></div>
+<input type="file" id="restoreFile" accept="application/json,.json" hidden>
 <datalist id="dlWard"></datalist>
 <datalist id="dlCat"></datalist>
 <datalist id="dlUnit"><option value="ชิ้น"></option><option value="เส้น"></option><option value="ใบ"></option><option value="อัน"></option><option value="ชุด"></option><option value="กล่อง"></option></datalist>
@@ -356,11 +357,15 @@ th { background: var(--surface-2); color: var(--accent); }
       wait: ['', 'กำลังเชื่อมต่อ…'],
       live: ['live', S.canWrite ? 'ข้อมูลอัปเดตสด · ทุกคนเห็นตรงกัน' : 'ข้อมูลอัปเดตสด · ดูได้อย่างเดียว'],
       off: ['off', 'ไม่ได้เชื่อมต่อฐานข้อมูล'],
+      local: ['live', 'บันทึกในเครื่องนี้'],
     };
     const [cls, txt] = map[S.conn];
     el.innerHTML = `<span class="dot ${cls}"></span><span>${esc(txt)}</span>`;
     const ban = $('#banner');
-    if (S.conn === 'off') {
+    if (S.conn === 'local') {
+      ban.hidden = false;
+      ban.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between"><span><strong>ข้อมูลเก็บในเบราว์เซอร์นี้เท่านั้น</strong> · ไม่แชร์ข้ามเครื่อง ถ้าล้างประวัติเบราว์เซอร์ข้อมูลจะหาย ควรกดสำรองข้อมูลเป็นประจำ</span><span style="display:flex;gap:8px"><button class="btn" type="button" data-backup>สำรองข้อมูล</button><button class="btn" type="button" data-restore>นำเข้าไฟล์สำรอง</button></span></div>';
+    } else if (S.conn === 'off') {
       ban.hidden = false;
       ban.innerHTML = '<strong>ยังบันทึกข้อมูลไม่ได้</strong> — เปิดหน้านี้ใน claude.ai และลงชื่อเข้าใช้ เพื่อดูและบันทึกยอดคลังที่ใช้ร่วมกัน';
     } else if (S.conn === 'live' && !S.canWrite) {
@@ -368,7 +373,7 @@ th { background: var(--surface-2); color: var(--accent); }
       ban.innerHTML = '<strong>โหมดดูอย่างเดียว</strong> — บัญชีนี้ไม่มีสิทธิ์เติมหรือตัดจ่าย ติดต่อเจ้าของหน้าเพื่อขอสิทธิ์ Contributor';
     } else ban.hidden = true;
     document.querySelectorAll('[data-write]').forEach(b => b.hidden = !S.canWrite);
-    $('#btnAddItem').hidden = !S.canWrite || S.conn !== 'live';
+    $('#btnAddItem').hidden = !S.canWrite || S.conn === 'off' || S.conn === 'wait';
   }
 
   function renderStats() {
@@ -388,7 +393,7 @@ th { background: var(--surface-2); color: var(--accent); }
       <div class="stat warn"><span class="k">ต้องจัดซื้อ (ต่ำกว่า ${REORDER})</span><button class="v" type="button" data-jump="need" title="แสดงเฉพาะรายการที่ต้องจัดซื้อ">${v(need)}</button><span class="s">รวมรายการที่หมดแล้ว</span></div>
       <div class="stat"><span class="k">เคลื่อนไหววันนี้</span><span class="v">${v(today.length)}</span><span class="s">เติม ${fmtN(tin)} · จ่าย ${fmtN(tout)}</span></div>`;
     const bar = $('#reorderBar');
-    bar.hidden = loading || S.conn !== 'live' || need === 0;
+    bar.hidden = loading || S.conn === 'off' || S.conn === 'wait' || need === 0;
     if (!bar.hidden) bar.innerHTML = `<span class="blink-text">⚠ มี ${fmtN(need)} รายการคงเหลือต่ำกว่า ${REORDER} ชิ้น · ต้องจัดซื้ออะไหล่เติม</span><button class="btn" type="button" data-jump="need">ดูรายการที่ต้องจัดซื้อ</button>`;
   }
 
@@ -708,6 +713,7 @@ th { background: var(--surface-2); color: var(--accent); }
       try { await S.dl.save({ filename, data: csv }); return; }
       catch (e) { if (e && e.code === 'declined') return; if (e && e.code === 'rate_limited') { toast('มีหน้าต่างบันทึกไฟล์เปิดอยู่แล้ว'); return; } }
     }
+    if (S.conn === 'local') { blobDownload(filename, csv, 'text/csv;charset=utf-8'); return; }
     try { await navigator.clipboard.writeText(csv); toast('คัดลอกข้อมูล CSV แล้ว — วางลงใน Excel ได้เลย'); }
     catch { toast('ส่งออกไฟล์ไม่ได้ในมุมมองนี้'); }
   }
@@ -741,6 +747,8 @@ th { background: var(--surface-2); color: var(--accent); }
     if (el.closest('[data-clear-filters]')) { S.q = ''; S.cat = 'all'; S.status = 'all'; $('#q').value = ''; $('#fStatus').value = 'all'; render(); return; }
     if (el.closest('#btnExportStock')) { exportStock(); return; }
     if (el.closest('#btnExportHist')) { exportHist(); return; }
+    if (el.closest('[data-backup]')) { backup(); return; }
+    if (el.closest('[data-restore]')) { $('#restoreFile').click(); return; }
     const del = el.closest('[data-deltx]');
     if (del) {
       if (!del.classList.contains('arm')) { del.classList.add('arm'); del.textContent = 'ยืนยันลบ'; setTimeout(() => { if (del.isConnected) { del.classList.remove('arm'); del.textContent = 'ลบ'; } }, 4000); return; }
@@ -759,10 +767,95 @@ th { background: var(--surface-2); color: var(--accent); }
   $('#hTo').addEventListener('change', (e) => { S.h.to = e.target.value; renderHistory(); });
   $('#hQ').addEventListener('input', (e) => { S.h.q = e.target.value; renderHistory(); });
 
+  // ---------- standalone mode (GitHub Pages / opened as a file): data kept in this browser ----------
+  const LS_KEY = 'medstock.v1';
+  const SEED = [
+    ['Cuff ผู้ใหญ่ (สายเดี่ยว)', 'Cuff วัดความดัน', 'ชิ้น'], ['Cuff ผู้ใหญ่ (สายคู่)', 'Cuff วัดความดัน', 'ชิ้น'],
+    ['Cuff ผู้ใหญ่อ้วน (สายเดี่ยว)', 'Cuff วัดความดัน', 'ชิ้น'], ['Cuff ผู้ใหญ่อ้วน (สายคู่)', 'Cuff วัดความดัน', 'ชิ้น'],
+    ['Cuff เด็กโต (สายเดี่ยว)', 'Cuff วัดความดัน', 'ชิ้น'], ['Cuff เด็กโต (สายคู่)', 'Cuff วัดความดัน', 'ชิ้น'],
+    ['Cuff เด็กเล็ก (สายเดี่ยว)', 'Cuff วัดความดัน', 'ชิ้น'], ['Cuff เด็กเล็ก (สายคู่)', 'Cuff วัดความดัน', 'ชิ้น'],
+    ['Water trap', 'อุปกรณ์อื่น ๆ', 'ชิ้น'], ['Flexible tube', 'อุปกรณ์อื่น ๆ', 'เส้น'],
+    ['หม้อ AirVo2', 'High Flow (AirVo2 / BMC)', 'ใบ'], ['หม้อ BMC', 'High Flow (AirVo2 / BMC)', 'ใบ'],
+    ['สาย AirVo2', 'High Flow (AirVo2 / BMC)', 'เส้น'], ['จมูกผู้ใหญ่', 'High Flow (AirVo2 / BMC)', 'ชิ้น'],
+    ['จมูกเด็ก เขียว', 'High Flow (AirVo2 / BMC)', 'ชิ้น'], ['จมูกเด็ก ม่วง', 'High Flow (AirVo2 / BMC)', 'ชิ้น'],
+    ['Y-piece C2', 'เครื่องช่วยหายใจ C2', 'ชิ้น'], ['Flow sensor', 'เครื่องช่วยหายใจ C2', 'ชิ้น'],
+    ['Chamber C2', 'เครื่องช่วยหายใจ C2', 'ชิ้น'], ['Corrugate C2 สายสั้น', 'เครื่องช่วยหายใจ C2', 'เส้น'],
+    ['Corrugate C2 สายยาว', 'เครื่องช่วยหายใจ C2', 'เส้น'],
+  ];
+  function localDb() {
+    const load = () => { try { const s = JSON.parse(localStorage.getItem(LS_KEY)); if (s && s.items && s.txns) return s; } catch {} return null; };
+    let state = load();
+    if (!state) {
+      state = { items: {}, txns: {} };
+      SEED.forEach(([name, category, unit], k) => { state.items['i' + pad(k + 1)] = { no: k + 1, name, category, unit, min: 0, archived: false, createdAt: Date.now() }; });
+    }
+    const subs = { items: new Set(), txns: new Set() };
+    const save = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch { throw { code: 'quota_exceeded', message: 'storage full' }; } };
+    const snap = (col) => ({ docs: Object.entries(state[col] || {}).map(([id, d]) => ({ id, exists: true, data: () => d })) });
+    const emit = (col) => (subs[col] || []).forEach(fn => fn(snap(col)));
+    const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const docRef = (col, id) => ({
+      id, path: col + '/' + id,
+      set: async (d) => { (state[col] = state[col] || {})[id] = { ...d }; save(); emit(col); },
+      update: async (d) => { if (!state[col] || !state[col][id]) throw { code: 'invalid_argument', message: 'missing doc' }; state[col][id] = { ...state[col][id], ...d }; save(); emit(col); },
+      delete: async () => { if (state[col]) delete state[col][id]; save(); emit(col); },
+    });
+    window.addEventListener('storage', (e) => { if (e.key === LS_KEY) { const s = load(); if (s) { state = s; emit('items'); emit('txns'); } } });
+    try { save(); } catch {}
+    return {
+      collection: (col) => ({
+        doc: (id) => docRef(col, id || genId()),
+        add: async (d) => { const r = docRef(col, genId()); await r.set(d); return r; },
+        onSnapshot: (fn) => { (subs[col] = subs[col] || new Set()).add(fn); setTimeout(() => fn(snap(col))); return () => subs[col].delete(fn); },
+      }),
+      doc: (path) => { const [col, id] = path.split('/'); return docRef(col, id); },
+      exportData: () => ({ app: 'medical-equipment-parts-stock-tracker', version: 1, exportedAt: new Date().toISOString(), items: state.items, txns: state.txns }),
+      importData: (d) => { state = { items: { ...d.items }, txns: { ...d.txns } }; save(); emit('items'); emit('txns'); },
+    };
+  }
+  function blobDownload(filename, data, type) {
+    const url = URL.createObjectURL(new Blob([data], { type }));
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  function backup() {
+    blobDownload(`stock-backup-${ymd()}.json`, JSON.stringify(S.db.exportData(), null, 1), 'application/json');
+    toast('ดาวน์โหลดไฟล์สำรองข้อมูลแล้ว');
+  }
+  function restoreFrom(file) {
+    const r = new FileReader();
+    r.onload = () => {
+      let d; try { d = JSON.parse(r.result); } catch { d = null; }
+      if (!d || typeof d.items !== 'object' || typeof d.txns !== 'object' || !d.items || !d.txns) { toast('ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้'); return; }
+      const ni = Object.keys(d.items).length, nt = Object.keys(d.txns).length;
+      const m = openModal(`
+        <div class="m-h"><div><h3>นำเข้าข้อมูลสำรอง</h3><div class="sub">${esc(file.name)}</div></div><button class="x" type="button" data-close aria-label="ปิด">×</button></div>
+        <div class="m-b"><p style="margin:0">ไฟล์นี้มี ${fmtN(ni)} รายการอะไหล่ และ ${fmtN(nt)} ประวัติ ข้อมูลทั้งหมดในเบราว์เซอร์นี้จะถูกแทนที่ด้วยข้อมูลจากไฟล์</p></div>
+        <div class="m-f"><div class="right"><button class="btn" type="button" data-close>ยกเลิก</button><button class="btn primary" type="button" id="doRestore">แทนที่ข้อมูล</button></div></div>`);
+      $('#doRestore', m).addEventListener('click', () => {
+        try { S.db.importData(d); closeModal(); toast(`นำเข้าแล้ว ${fmtN(ni)} รายการ`); }
+        catch { toast('พื้นที่เก็บข้อมูลในเบราว์เซอร์เต็ม'); }
+      });
+    };
+    r.readAsText(file);
+  }
+  $('#restoreFile').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) restoreFrom(f); e.target.value = ''; });
+
   // ---------- boot ----------
+  function subscribe(db) {
+    const onErr = () => { S.conn = 'off'; render(); };
+    db.collection('items').onSnapshot((snap) => { S.items = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.ready.items = true; render(); }, onErr);
+    db.collection('txns').onSnapshot((snap) => { S.txns = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => Number.isFinite(t.at)); S.ready.txns = true; render(); }, onErr);
+  }
   render();
   (async () => {
-    const use = (n) => (window.claude && window.claude.use) ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+    if (!(window.claude && window.claude.use)) {
+      try { S.db = localDb(); } catch { S.conn = 'off'; render(); return; }
+      S.conn = 'local'; S.canWrite = true;
+      subscribe(S.db); render(); return;
+    }
+    const use = (n) => window.claude.use(n).catch(() => null);
     const [db, user, dl] = await Promise.all([use('db'), use('user'), use('downloads')]);
     S.user = user; S.dl = dl;
     if (!db) { S.conn = 'off'; render(); return; }
@@ -773,9 +866,7 @@ th { background: var(--surface-2); color: var(--accent); }
       S.canWrite = can !== false;
     }
     S.conn = 'live';
-    const onErr = () => { S.conn = 'off'; render(); };
-    db.collection('items').onSnapshot((snap) => { S.items = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.ready.items = true; render(); }, onErr);
-    db.collection('txns').onSnapshot((snap) => { S.txns = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => Number.isFinite(t.at)); S.ready.txns = true; render(); }, onErr);
+    subscribe(db);
     render();
   })();
 })();
