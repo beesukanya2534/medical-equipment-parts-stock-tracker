@@ -148,3 +148,9 @@ insert into public.wards (name, sort) values
 ('ศัลย์ ชาย', 6), ('ศัลย์ หญิง', 7), ('ICU 100', 8), ('ดล', 9), ('PICU', 10),
 ('Semi ICU', 11), ('ดบ', 12), ('EENT', 13), ('ICU Neuro', 14), ('กจ4', 15),
 ('ICU S', 16), ('ศัลยกรรมกระดูก', 17), ('ญ7', 18), ('ญ8', 19), ('เด็กล่าง', 20), ('ICU ญสส', 21);
+
+-- The dispense form has an "add department" button; like the rest of the site, no login.
+create policy "anyone add wards" on public.wards for insert to anon, authenticated with check (true);
+grant insert on public.wards to anon;
+-- Block duplicates that differ only by case or spacing ("ICU100" vs "icu 100")
+create unique index wards_name_key_idx on public.wards (lower(regexp_replace(name, '\s', '', 'g')));

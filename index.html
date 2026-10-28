@@ -212,6 +212,12 @@ th { background: var(--surface-2); color: var(--accent); }
 .ward-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -6px; }
 .ward-chips .chip { padding: 4px 10px; font-size: 13px; color: var(--ink); }
 .ward-chips .chip[aria-pressed="true"] { background: var(--out-bg); border-color: var(--out); color: var(--out); box-shadow: 0 0 12px rgba(255,143,107,.25); }
+.ward-chips .chip-add { border-style: dashed; border-color: var(--accent); color: var(--accent); background: transparent; }
+.ward-add { display: flex; gap: 6px; flex: 1 1 100%; min-width: 0; }
+.ward-add .field { flex: 1; min-width: 0; height: 34px; }
+.ward-add .btn { height: 34px; padding: 0 12px; }
+.ward-chips .err { flex: 1 1 100%; font-weight: 600; }
+.ward-chips .chip.dup-flash { border-color: var(--warn); color: var(--warn); background: var(--warn-bg); box-shadow: 0 0 14px rgba(251,191,60,.45); animation: blink .55s steps(1, end) 4; }
 .banner-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .banner-row .acts-b { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -329,7 +335,20 @@ th { background: var(--surface-2); color: var(--accent); }
   const REORDER = 5; // คงเหลือต่ำกว่านี้ = ต้องจัดซื้อเติม (กระพริบเตือน)
   // หน่วยงานจากระบบ ventilator round (เรียงตามที่ใช้บ่อย) ใช้เมื่อโหลดตาราง wards จาก Supabase ไม่ได้
   const DEFAULT_WARDS = ['Med ญ', 'Med ชาย', 'กจ2', 'กจ3', 'TM', 'ศัลย์ ชาย', 'ศัลย์ หญิง', 'ICU 100', 'ดล', 'PICU', 'Semi ICU', 'ดบ', 'EENT', 'ICU Neuro', 'กจ4', 'ICU S', 'ศัลยกรรมกระดูก', 'ญ7', 'ญ8', 'เด็กล่าง', 'ICU ญสส'];
-  S.wards = DEFAULT_WARDS;
+  S.baseWards = DEFAULT_WARDS; S.extraWards = [];
+  const wardList = () => [...new Set([...S.baseWards, ...S.extraWards])];
+  const wardKey = (w) => String(w).toLowerCase().replace(/\s+/g, ''); // "ICU100" = "ICU 100" = "icu 100"
+  async function addWard(name) {
+    if (S.conn === 'supa') {
+      const { error } = await S.sb.from('wards').insert({ name, sort: 1000 + S.baseWards.length });
+      if (error) throw { code: error.code === '23505' ? 'duplicate' : error.code === '42501' ? 'invalid_argument' : 'unavailable', message: error.message };
+      S.baseWards = [...S.baseWards, name];
+    } else {
+      await S.db.collection('wards').add({ name, createdAt: Date.now() });
+      S.extraWards = [...S.extraWards, name];
+    }
+    renderDatalists();
+  }
   const needsReorder = (b) => b.bal < REORDER;
   const reorderTag = (b, unit) => `<div class="reorder" role="status">⚠ ${b.bal <= 0 ? 'หมดคลัง' : `เหลือ ${fmtN(b.bal)} ${esc(unit || '')}`} · ต้องจัดซื้อเติม</div>`;
 
@@ -537,7 +556,7 @@ th { background: var(--surface-2); color: var(--accent); }
   }
 
   function renderDatalists() {
-    const wards = [...new Set([...S.wards, ...S.txns.map(t => (t.ward || '').trim())].filter(Boolean))].slice(0, 120);
+    const wards = [...new Set([...wardList(), ...S.txns.map(t => (t.ward || '').trim())].filter(Boolean))].slice(0, 150);
     $('#dlWard').innerHTML = wards.map(w => `<option value="${esc(w)}"></option>`).join('');
     const cats = [...new Set(S.items.map(i => i.category).filter(Boolean))];
     $('#dlCat').innerHTML = cats.map(c => `<option value="${esc(c)}"></option>`).join('');
@@ -588,7 +607,7 @@ th { background: var(--surface-2); color: var(--accent); }
         <div class="preview"><span id="pvLbl">คงเหลือหลังบันทึก</span><b id="pv">0</b></div>
         <div class="err" id="txErr" hidden></div>
         <label class="lbl"><span id="wLbl">หน่วยงาน</span><input class="field" id="txWard" list="dlWard" autocomplete="off"></label>
-        <div class="ward-chips" id="wardChips" role="group" aria-label="เลือกหน่วยงาน">${S.wards.map(w => `<button type="button" class="chip" data-ward="${esc(w)}" aria-pressed="false">${esc(w)}</button>`).join('')}</div>
+        <div class="ward-chips" id="wardChips" role="group" aria-label="เลือกหน่วยงาน"></div>
         <div class="two">
           <label class="lbl">วันเวลา<input class="field" id="txAt" type="datetime-local" value="${toLocalInput(Date.now())}"></label>
           <label class="lbl">หมายเหตุ<input class="field" id="txNote" autocomplete="off" placeholder="เช่น เลขที่ใบเบิก"></label>
@@ -599,6 +618,36 @@ th { background: var(--surface-2); color: var(--accent); }
     const qty = $('#txQty', m);
     const markWards = () => { const v = $('#txWard', m).value.trim(); m.querySelectorAll('[data-ward]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ward === v)); };
     $('#txWard', m).addEventListener('input', markWards);
+    const chipsBox = $('#wardChips', m);
+    function renderWardChips(adding) {
+      chipsBox.innerHTML = wardList().map(w => `<button type="button" class="chip" data-ward="${esc(w)}" aria-pressed="false">${esc(w)}</button>`).join('')
+        + (!S.canWrite ? '' : adding
+          ? `<div class="ward-add"><input class="field" id="newWard" maxlength="120" placeholder="ชื่อหน่วยงานใหม่" autocomplete="off"><button type="button" class="btn primary" data-ward-save>เพิ่ม</button><button type="button" class="btn ghost" data-ward-cancel>ยกเลิก</button></div><div class="err" id="wardErr" hidden></div>`
+          : '<button type="button" class="chip chip-add" data-ward-add>+ เพิ่มหน่วยงาน</button>');
+      markWards();
+      if (adding) $('#newWard', m).focus();
+    }
+    async function saveWard() {
+      const inp = $('#newWard', m), er = $('#wardErr', m), btn = m.querySelector('[data-ward-save]');
+      const name = inp.value.trim().replace(/\s+/g, ' ').slice(0, 120);
+      if (!name) { er.hidden = false; er.textContent = 'ใส่ชื่อหน่วยงาน'; inp.focus(); return; }
+      const dup = wardList().find(w => wardKey(w) === wardKey(name));
+      const warnDup = (d) => {
+        er.hidden = false; er.textContent = `⚠ มีหน่วยงาน “${d}” อยู่แล้ว ไม่ต้องเพิ่มซ้ำ แตะปุ่มที่กระพริบเพื่อเลือก`;
+        const chip = [...m.querySelectorAll('[data-ward]')].find(b => b.dataset.ward === d);
+        if (chip) { chip.classList.remove('dup-flash'); void chip.offsetWidth; chip.classList.add('dup-flash'); chip.scrollIntoView({ block: 'nearest' }); }
+        inp.focus(); inp.select();
+      };
+      if (dup) { warnDup(dup); return; }
+      btn.disabled = true;
+      try { await addWard(name); $('#txWard', m).value = name; renderWardChips(false); toast(`เพิ่มหน่วยงาน “${name}” แล้ว`); }
+      catch (e) {
+        btn.disabled = false;
+        if (e && e.code === 'duplicate') { if (!S.baseWards.includes(name)) S.baseWards = [...S.baseWards, name]; renderWardChips(true); $('#newWard', m).value = name; return saveWard(); }
+        er.hidden = false; er.textContent = writeError(e);
+      }
+    }
+    renderWardChips(false);
     function sync() {
       m.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
       $('#qLbl', m).textContent = t === 'adj' ? 'จำนวนที่นับได้จริง' : t === 'in' ? 'จำนวนที่เติม' : 'จำนวนที่ตัดจ่าย';
@@ -620,11 +669,18 @@ th { background: var(--surface-2); color: var(--accent); }
     m.addEventListener('click', (ev) => {
       const s = ev.target.closest('[data-t]'); if (s) { t = s.dataset.t; if (t === 'adj') qty.value = cur; else if (qty.value === '0' || Number(qty.value) === cur) qty.value = 1; sync(); qty.focus(); qty.select(); }
       const wc = ev.target.closest('[data-ward]'); if (wc) { $('#txWard', m).value = wc.dataset.ward; markWards(); return; }
+      if (ev.target.closest('[data-ward-add]')) { renderWardChips(true); return; }
+      if (ev.target.closest('[data-ward-cancel]')) { renderWardChips(false); return; }
+      if (ev.target.closest('[data-ward-save]')) { saveWard(); return; }
       const st = ev.target.closest('[data-step]'); if (st) { qty.value = Math.max(0, (Math.floor(Number(qty.value)) || 0) + Number(st.dataset.step)); sync(); }
     });
     qty.addEventListener('input', sync);
     $('#txForm', m).addEventListener('submit', (e) => { e.preventDefault(); $('#txSave', m).click(); });
-    m.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('#txSave', m).click(); } });
+    m.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+      e.preventDefault();
+      if (e.target.id === 'newWard') saveWard(); else $('#txSave', m).click();
+    });
     $('#txSave', m).addEventListener('click', async () => {
       if (!sync()) return;
       const btn = $('#txSave', m); btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
@@ -880,6 +936,10 @@ th { background: var(--surface-2); color: var(--accent); }
     db.collection('items').onSnapshot((snap) => { S.items = snap.docs.map(d => ({ id: d.id, ...d.data() })); S.ready.items = true; render(); }, onErr);
     db.collection('txns').onSnapshot((snap) => { S.txns = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => Number.isFinite(t.at)); S.ready.txns = true; render(); }, onErr);
   }
+  // departments added from the dispense form (claude.ai and browser-only modes; Supabase uses its wards table)
+  function subscribeWards(db) {
+    db.collection('wards').onSnapshot((snap) => { S.extraWards = snap.docs.map(d => d.data().name).filter(Boolean); renderDatalists(); }, () => {});
+  }
   // ---------- Supabase mode (GitHub Pages): shared online data, staff sign-in ----------
   const SUPA = { url: 'https://uyzunajfjmbgcfjthihm.supabase.co', key: 'sb_publishable_wkqBWhuJuTQGbKRI9eYPWQ_zg3_th-O' };
   const SUPA_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
@@ -947,9 +1007,10 @@ th { background: var(--surface-2); color: var(--accent); }
   async function startSupa() {
     try { await loadScript(SUPA_JS); } catch { S.conn = 'off'; render(); return; }
     const sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { persistSession: false, autoRefreshToken: false } });
+    S.sb = sb;
     S.db = supaDb(sb); subscribe(S.db);
     S.conn = 'supa'; S.canWrite = true; render();
-    sb.from('wards').select('name').eq('active', true).order('sort').then(({ data }) => { if (data && data.length) { S.wards = data.map(r => r.name); renderDatalists(); } });
+    sb.from('wards').select('name').eq('active', true).order('sort').order('created_at').then(({ data }) => { if (data && data.length) { S.baseWards = data.map(r => r.name); renderDatalists(); } });
   }
 
   render();
@@ -958,7 +1019,7 @@ th { background: var(--surface-2); color: var(--accent); }
       if (SUPA.url) { startSupa(); return; }
       try { S.db = localDb(); } catch { S.conn = 'off'; render(); return; }
       S.conn = 'local'; S.canWrite = true;
-      subscribe(S.db); render(); return;
+      subscribe(S.db); subscribeWards(S.db); render(); return;
     }
     const use = (n) => window.claude.use(n).catch(() => null);
     const [db, user, dl] = await Promise.all([use('db'), use('user'), use('downloads')]);
@@ -971,7 +1032,7 @@ th { background: var(--surface-2); color: var(--accent); }
       S.canWrite = can !== false;
     }
     S.conn = 'live';
-    subscribe(db);
+    subscribe(db); subscribeWards(db);
     render();
   })();
 })();
