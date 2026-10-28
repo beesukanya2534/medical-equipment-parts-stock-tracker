@@ -130,3 +130,21 @@ grant select, insert, delete on public.txns to anon;
 
 -- Free-text name of whoever recorded the movement (no accounts any more)
 alter table public.txns add column recorder text not null default '' check (char_length(recorder) <= 60);
+
+-- Departments copied from the ventilator-round project (spelling variants merged),
+-- ordered by how often each appears there. Shown as choices when dispensing.
+create table public.wards (
+  name text primary key check (char_length(name) between 1 and 120),
+  sort integer not null default 100,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.wards enable row level security;
+create policy "anyone read wards" on public.wards for select to anon, authenticated using (true);
+grant select on public.wards to anon;
+
+insert into public.wards (name, sort) values
+('Med ญ', 1), ('Med ชาย', 2), ('กจ2', 3), ('กจ3', 4), ('TM', 5),
+('ศัลย์ ชาย', 6), ('ศัลย์ หญิง', 7), ('ICU 100', 8), ('ดล', 9), ('PICU', 10),
+('Semi ICU', 11), ('ดบ', 12), ('EENT', 13), ('ICU Neuro', 14), ('กจ4', 15),
+('ICU S', 16), ('ศัลยกรรมกระดูก', 17), ('ญ7', 18), ('ญ8', 19), ('เด็กล่าง', 20), ('ICU ญสส', 21);

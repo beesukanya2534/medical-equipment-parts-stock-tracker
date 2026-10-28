@@ -209,6 +209,9 @@ textarea.field { height: auto; min-height: 64px; padding: 8px 10px; resize: vert
 .toast { background: var(--surface-2); color: var(--ink); border: 1px solid var(--accent); box-shadow: var(--glow); }
 th { background: var(--surface-2); color: var(--accent); }
 
+.ward-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -6px; }
+.ward-chips .chip { padding: 4px 10px; font-size: 13px; color: var(--ink); }
+.ward-chips .chip[aria-pressed="true"] { background: var(--out-bg); border-color: var(--out); color: var(--out); box-shadow: 0 0 12px rgba(255,143,107,.25); }
 .banner-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .banner-row .acts-b { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -324,6 +327,9 @@ th { background: var(--surface-2); color: var(--accent); }
   const TYPE = { in: 'เติม', out: 'ตัดจ่าย', adj: 'ตรวจนับ' };
   const STATUS = { ok: 'ปกติ', low: 'ใกล้หมด', empty: 'หมด' };
   const REORDER = 5; // คงเหลือต่ำกว่านี้ = ต้องจัดซื้อเติม (กระพริบเตือน)
+  // หน่วยงานจากระบบ ventilator round (เรียงตามที่ใช้บ่อย) ใช้เมื่อโหลดตาราง wards จาก Supabase ไม่ได้
+  const DEFAULT_WARDS = ['Med ญ', 'Med ชาย', 'กจ2', 'กจ3', 'TM', 'ศัลย์ ชาย', 'ศัลย์ หญิง', 'ICU 100', 'ดล', 'PICU', 'Semi ICU', 'ดบ', 'EENT', 'ICU Neuro', 'กจ4', 'ICU S', 'ศัลยกรรมกระดูก', 'ญ7', 'ญ8', 'เด็กล่าง', 'ICU ญสส'];
+  S.wards = DEFAULT_WARDS;
   const needsReorder = (b) => b.bal < REORDER;
   const reorderTag = (b, unit) => `<div class="reorder" role="status">⚠ ${b.bal <= 0 ? 'หมดคลัง' : `เหลือ ${fmtN(b.bal)} ${esc(unit || '')}`} · ต้องจัดซื้อเติม</div>`;
 
@@ -531,7 +537,7 @@ th { background: var(--surface-2); color: var(--accent); }
   }
 
   function renderDatalists() {
-    const wards = [...new Set(S.txns.map(t => (t.ward || '').trim()).filter(Boolean))].slice(0, 80);
+    const wards = [...new Set([...S.wards, ...S.txns.map(t => (t.ward || '').trim())].filter(Boolean))].slice(0, 120);
     $('#dlWard').innerHTML = wards.map(w => `<option value="${esc(w)}"></option>`).join('');
     const cats = [...new Set(S.items.map(i => i.category).filter(Boolean))];
     $('#dlCat').innerHTML = cats.map(c => `<option value="${esc(c)}"></option>`).join('');
@@ -582,6 +588,7 @@ th { background: var(--surface-2); color: var(--accent); }
         <div class="preview"><span id="pvLbl">คงเหลือหลังบันทึก</span><b id="pv">0</b></div>
         <div class="err" id="txErr" hidden></div>
         <label class="lbl"><span id="wLbl">หน่วยงาน</span><input class="field" id="txWard" list="dlWard" autocomplete="off"></label>
+        <div class="ward-chips" id="wardChips" role="group" aria-label="เลือกหน่วยงาน">${S.wards.map(w => `<button type="button" class="chip" data-ward="${esc(w)}" aria-pressed="false">${esc(w)}</button>`).join('')}</div>
         <div class="two">
           <label class="lbl">วันเวลา<input class="field" id="txAt" type="datetime-local" value="${toLocalInput(Date.now())}"></label>
           <label class="lbl">หมายเหตุ<input class="field" id="txNote" autocomplete="off" placeholder="เช่น เลขที่ใบเบิก"></label>
@@ -590,11 +597,15 @@ th { background: var(--surface-2); color: var(--accent); }
       </form>
       <div class="m-f"><div class="right"><button class="btn" type="button" data-close>ยกเลิก</button><button class="btn primary" type="button" id="txSave">บันทึก</button></div></div>`);
     const qty = $('#txQty', m);
+    const markWards = () => { const v = $('#txWard', m).value.trim(); m.querySelectorAll('[data-ward]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ward === v)); };
+    $('#txWard', m).addEventListener('input', markWards);
     function sync() {
       m.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
       $('#qLbl', m).textContent = t === 'adj' ? 'จำนวนที่นับได้จริง' : t === 'in' ? 'จำนวนที่เติม' : 'จำนวนที่ตัดจ่าย';
       $('#wLbl', m).textContent = t === 'in' ? 'รับจาก (คลังกลาง / บริษัท)' : t === 'out' ? 'จ่ายให้ หน่วยงาน / วอร์ด' : 'ผู้ตรวจนับ / หน่วยงาน';
-      $('#txWard', m).placeholder = t === 'out' ? 'เช่น ICU อายุรกรรม' : t === 'in' ? 'เช่น คลังพัสดุ' : '';
+      $('#txWard', m).placeholder = t === 'out' ? 'แตะเลือกด้านล่าง หรือพิมพ์เอง' : t === 'in' ? 'เช่น คลังพัสดุ' : '';
+      $('#wardChips', m).hidden = t !== 'out';
+      markWards();
       const n = Math.floor(Number(qty.value));
       const after = t === 'in' ? cur + n : t === 'out' ? cur - n : n;
       $('#pv', m).textContent = Number.isFinite(after) ? `${fmtN(after)} ${it.unit || ''}` : '–';
@@ -608,6 +619,7 @@ th { background: var(--surface-2); color: var(--accent); }
     }
     m.addEventListener('click', (ev) => {
       const s = ev.target.closest('[data-t]'); if (s) { t = s.dataset.t; if (t === 'adj') qty.value = cur; else if (qty.value === '0' || Number(qty.value) === cur) qty.value = 1; sync(); qty.focus(); qty.select(); }
+      const wc = ev.target.closest('[data-ward]'); if (wc) { $('#txWard', m).value = wc.dataset.ward; markWards(); return; }
       const st = ev.target.closest('[data-step]'); if (st) { qty.value = Math.max(0, (Math.floor(Number(qty.value)) || 0) + Number(st.dataset.step)); sync(); }
     });
     qty.addEventListener('input', sync);
@@ -937,6 +949,7 @@ th { background: var(--surface-2); color: var(--accent); }
     const sb = window.supabase.createClient(SUPA.url, SUPA.key, { auth: { persistSession: false, autoRefreshToken: false } });
     S.db = supaDb(sb); subscribe(S.db);
     S.conn = 'supa'; S.canWrite = true; render();
+    sb.from('wards').select('name').eq('active', true).order('sort').then(({ data }) => { if (data && data.length) { S.wards = data.map(r => r.name); renderDatalists(); } });
   }
 
   render();
