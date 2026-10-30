@@ -104,7 +104,7 @@ select.field { padding-right: 6px; }
 .group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
 .group-h h2 { font-family: var(--f-display); font-size: 16px; font-weight: 600; margin: 0; }
 .group-h span { font-size: 13px; color: var(--muted); }
-.cols, .row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 92px 112px 64px 64px 196px; align-items: center; gap: 10px; padding: 10px 16px; }
+.cols, .row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 96px 104px 56px 56px 56px 196px; align-items: center; gap: 10px; padding: 10px 16px; }
 .cols { font-size: 12px; color: var(--muted); letter-spacing: .03em; padding-block: 6px; border-bottom: 1px solid var(--line); }
 .cols .r, .row .r { text-align: right; }
 .row + .row { border-top: 1px solid var(--line); }
@@ -174,7 +174,7 @@ textarea.field { height: auto; min-height: 64px; padding: 8px 10px; resize: vert
 .preview { display: flex; justify-content: space-between; align-items: center; background: var(--surface-2); border-radius: 9px; padding: 10px 12px; font-size: 14px; color: var(--muted); }
 .preview b { font-family: var(--f-display); font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .err { color: var(--crit); font-size: 13.5px; }
-.ledger-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.ledger-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
 .ledger-sum div { background: var(--surface-2); border-radius: 9px; padding: 8px 12px; }
 .ledger-sum .k { font-size: 12px; color: var(--muted); }
 .ledger-sum .v { font-family: var(--f-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -218,6 +218,23 @@ th { background: var(--surface-2); color: var(--accent); }
 .ward-add .btn { height: 34px; padding: 0 12px; }
 .ward-chips .err { flex: 1 1 100%; font-weight: 600; }
 .ward-chips .chip.dup-flash { border-color: var(--warn); color: var(--warn); background: var(--warn-bg); box-shadow: 0 0 14px rgba(251,191,60,.45); animation: blink .55s steps(1, end) 4; }
+/* fiscal year picker */
+.top-r { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: flex-end; }
+.fy-btn { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent-weak); color: var(--ink); box-shadow: 0 0 18px rgba(34,211,238,.18); }
+.fy-btn:hover { box-shadow: var(--glow); }
+.fy-btn .fy-k { font-size: 12.5px; color: var(--muted); }
+.fy-btn .fy-v { font-family: var(--f-display); font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
+.fy-btn .fy-d { font-size: 12.5px; color: var(--muted); }
+.fy-btn .fy-c { color: var(--accent); }
+.fy-list { display: flex; flex-direction: column; gap: 8px; }
+.fy-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+.fy-opt:hover { border-color: var(--accent); }
+.fy-opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-weak); box-shadow: var(--glow); }
+.fy-opt .fy-y { font-family: var(--f-display); font-size: 18px; font-weight: 600; }
+.fy-opt .fy-y em { font-style: normal; font-family: var(--f-body); font-size: 12px; font-weight: 600; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: middle; }
+.fy-opt .fy-r { font-size: 13px; color: var(--muted); }
+.tot.open { color: var(--muted); }
+.open-row td { background: var(--accent-weak); color: var(--muted); }
 .banner-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .banner-row .acts-b { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -259,7 +276,10 @@ th { background: var(--surface-2); color: var(--accent); }
       <div class="eyebrow">บัตรคุมวัสดุ · Biomedical spare parts</div>
       <h1>คลังอะไหล่เครื่องมือแพทย์</h1>
     </div>
-    <div class="sync" id="sync"><span class="dot"></span><span>กำลังเชื่อมต่อ…</span></div>
+    <div class="top-r">
+      <button class="fy-btn" id="btnFy" type="button" aria-haspopup="dialog"></button>
+      <div class="sync" id="sync"><span class="dot"></span><span>กำลังเชื่อมต่อ…</span></div>
+    </div>
   </header>
 
   <div class="banner" id="banner" hidden></div>
@@ -323,6 +343,7 @@ th { background: var(--surface-2); color: var(--accent); }
     db: null, user: null, dl: null, me: null, canWrite: true, conn: 'wait',
     items: [], txns: [], ready: { items: false, txns: false },
     tab: 'stock', q: '', cat: 'all', status: 'all', showArchived: false,
+    fy: (() => { try { return localStorage.getItem('medstock.fy') || 'cur'; } catch { return 'cur'; } })(),
     h: { item: 'all', type: 'all', from: '', to: '', q: '' },
   };
   const $ = (s, r = document) => r.querySelector(s);
@@ -366,6 +387,43 @@ th { background: var(--surface-2); color: var(--accent); }
     return m;
   }
   const B0 = { in: 0, out: 0, adj: 0, bal: 0, last: 0 };
+
+  // ---------- ปีงบประมาณ (1 ต.ค. – 30 ก.ย.) ----------
+  // ปีงบ พ.ศ. 2570 = 1 ต.ค. 2569 – 30 ก.ย. 2570
+  const fyOf = (ms) => { const d = new Date(ms); return d.getFullYear() + (d.getMonth() >= 9 ? 1 : 0) + 543; };
+  const fyRange = (be) => [new Date(be - 544, 9, 1).getTime(), new Date(be - 543, 9, 1).getTime()];
+  const dShort = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+  const fyRangeText = (be) => { const [a, b] = fyRange(be); return `${dShort.format(a)} – ${dShort.format(b - 1)}`; };
+  const curFy = () => fyOf(Date.now());
+  const selFy = () => S.fy === 'all' ? null : (S.fy === 'cur' ? curFy() : Number(S.fy) || curFy());
+  const isPastFy = () => { const be = selFy(); return !!be && be < curFy(); };
+  const fyYears = () => { const now = curFy(); let min = now; for (const t of S.txns) { const f = fyOf(t.at); if (f < min) min = f; } const out = []; for (let y = now; y >= min; y--) out.push(y); return out; };
+  const F0 = { open: 0, in: 0, out: 0, adj: 0, bal: 0 };
+  // per item: ยกมา (ก่อนต้นปีงบ), รับ/จ่าย/ปรับ ในปีงบ, คงเหลือ ณ สิ้นปีงบ (หรือวันนี้ถ้าเป็นปีปัจจุบัน)
+  function fyStats() {
+    const be = selFy(); const m = {};
+    const [a, b] = be ? fyRange(be) : [-Infinity, Infinity];
+    for (const t of S.txns) {
+      const s = m[t.itemId] || (m[t.itemId] = { open: 0, in: 0, out: 0, adj: 0, bal: 0 });
+      const q = Number(t.qty) || 0; const d = t.type === 'out' ? -q : q;
+      if (t.at < a) { s.open += d; s.bal += d; }
+      else if (t.at < b) { if (t.type === 'in') s.in += q; else if (t.type === 'out') s.out += q; else s.adj += q; s.bal += d; }
+    }
+    return m;
+  }
+  function openFyPicker() {
+    const be = selFy();
+    const opts = fyYears().map(y => {
+      const [a, b] = fyRange(y);
+      const n = S.txns.filter(t => t.at >= a && t.at < b).length;
+      return `<button type="button" class="fy-opt" data-fy="${y}" aria-pressed="${be === y}"><span class="fy-y">ปีงบประมาณ ${y}${y === curFy() ? ' <em>ปีปัจจุบัน</em>' : ''}</span><span class="fy-r">${esc(fyRangeText(y))} · ${fmtN(n)} รายการ</span></button>`;
+    }).join('');
+    openModal(`
+      <div class="m-h"><div><h3>เลือกปีงบประมาณ</h3><div class="sub">ตัดยอดรับ จ่าย และประวัติตามปีงบ (1 ต.ค. – 30 ก.ย.) ยอดคงเหลือยกมาจากปีก่อนให้อัตโนมัติ</div></div><button class="x" type="button" data-close aria-label="ปิด">×</button></div>
+      <div class="m-b"><div class="fy-list">${opts}
+        <button type="button" class="fy-opt" data-fy="all" aria-pressed="${be === null}"><span class="fy-y">ทุกปี</span><span class="fy-r">รวมทั้งหมดตั้งแต่เริ่มบันทึก · ${fmtN(S.txns.length)} รายการ</span></button>
+      </div></div>`);
+  }
   function statusOf(item, b) {
     if (b.bal <= 0) return 'empty';
     if (b.bal < REORDER || ((item.min || 0) > 0 && b.bal <= item.min)) return 'low';
@@ -378,6 +436,10 @@ th { background: var(--surface-2); color: var(--accent); }
 
   // ---------- render ----------
   function render() {
+    const be = selFy();
+    $('#btnFy').innerHTML = be
+      ? `<span class="fy-k">ปีงบประมาณ</span><span class="fy-v">${be}</span><span class="fy-d">${esc(fyRangeText(be))}</span><span class="fy-c" aria-hidden="true">▾</span>`
+      : `<span class="fy-k">ปีงบประมาณ</span><span class="fy-v">ทุกปี</span><span class="fy-c" aria-hidden="true">▾</span>`;
     renderSync();
     renderStats();
     if (S.tab === 'stock') renderStock(); else renderHistory();
@@ -461,22 +523,30 @@ th { background: var(--surface-2); color: var(--accent); }
     const groups = new Map();
     for (const i of list) { const c = i.category || 'ไม่ระบุหมวด'; if (!groups.has(c)) groups.set(c, []); groups.get(c).push(i); }
     let html = '';
+    const fm = fyStats();
+    const past = isPastFy();
+    const be = selFy();
+    const balHead = past ? `คงเหลือ ณ 30 ก.ย. ${String(be).slice(2)}` : 'คงเหลือ';
     for (const [cat, rows] of groups) {
-      const sumBal = rows.reduce((a, i) => a + (bm[i.id] || B0).bal, 0);
-      html += `<div class="group"><div class="group-h"><h2>${esc(cat)}</h2><span>${rows.length} รายการ · คงเหลือรวม ${fmtN(sumBal)}</span></div>
-        <div class="cols" aria-hidden="true"><span>ลำดับ</span><span>รายการ</span><span class="r">คงเหลือ</span><span>สถานะ</span><span class="r">รับรวม</span><span class="r">จ่ายรวม</span><span></span></div>`;
+      const sumBal = rows.reduce((a, i) => a + (past ? (fm[i.id] || F0).bal : (bm[i.id] || B0).bal), 0);
+      html += `<div class="group"><div class="group-h"><h2>${esc(cat)}</h2><span>${rows.length} รายการ · ${past ? 'คงเหลือสิ้นปีงบรวม' : 'คงเหลือรวม'} ${fmtN(sumBal)}</span></div>
+        <div class="cols" aria-hidden="true"><span>ลำดับ</span><span>รายการ</span><span class="r">${balHead}</span><span>สถานะ</span><span class="r">ยกมา</span><span class="r">${be ? 'รับ' : 'รับรวม'}</span><span class="r">${be ? 'จ่าย' : 'จ่ายรวม'}</span><span></span></div>`;
       for (const i of rows) {
-        const b = bm[i.id] || B0;
+        const cb = bm[i.id] || B0; // ยอดปัจจุบัน ใช้กับสถานะและการเตือนจัดซื้อ
+        const f = fm[i.id] || F0;
+        const b = past ? { ...cb, bal: f.bal } : cb;
         const st = statusOf(i, b);
-        const meta = [i.min > 0 ? `จุดสั่งซื้อ ${fmtN(i.min)}` : 'ยังไม่ตั้งจุดสั่งซื้อ', b.last ? `ล่าสุด ${dtf.format(b.last)}` : 'ยังไม่มีการเคลื่อนไหว'].join(' · ');
+        const warn = !past && !i.archived && needsReorder(b);
+        const meta = [i.min > 0 ? `จุดสั่งซื้อ ${fmtN(i.min)}` : 'ยังไม่ตั้งจุดสั่งซื้อ', cb.last ? `ล่าสุด ${dtf.format(cb.last)}` : 'ยังไม่มีการเคลื่อนไหว'].join(' · ');
         html += `<div class="row" data-id="${esc(i.id)}">
           <span class="no">${esc(i.no)}</span>
-          <div class="name"><button type="button" data-card="${esc(i.id)}">${esc(i.name)}</button><div class="meta">${esc(meta)}</div>${!i.archived && needsReorder(b) ? reorderTag(b, i.unit) : ''}</div>
-          <div class="bal ${st}${!i.archived && needsReorder(b) ? ' blink' : ''}">${fmtN(b.bal)}<small>${esc(i.unit || '')}</small></div>
+          <div class="name"><button type="button" data-card="${esc(i.id)}">${esc(i.name)}</button><div class="meta">${esc(meta)}</div>${warn ? reorderTag(b, i.unit) : ''}</div>
+          <div class="bal ${st}${warn ? ' blink' : ''}">${fmtN(b.bal)}<small>${esc(i.unit || '')}</small></div>
           <div class="st">${i.archived ? '<span class="pill hidden">ซ่อนอยู่</span>' : `<span class="pill ${st}">${STATUS[st]}</span>`}</div>
-          <div class="tot in">${fmtN(b.in)}</div>
-          <div class="tot out">${fmtN(b.out)}</div>
-          <div class="tots-m">รับ ${fmtN(b.in)} · จ่าย ${fmtN(b.out)}</div>
+          <div class="tot open">${be ? fmtN(f.open) : '–'}</div>
+          <div class="tot in">${fmtN(f.in)}</div>
+          <div class="tot out">${fmtN(f.out)}</div>
+          <div class="tots-m">${be ? `ยกมา ${fmtN(f.open)} · ` : ''}รับ ${fmtN(f.in)} · จ่าย ${fmtN(f.out)}</div>
           <div class="acts">${S.canWrite && !i.archived ? `
             <button class="act in" type="button" data-tx="in" data-item="${esc(i.id)}">+ เติม</button>
             <button class="act out" type="button" data-tx="out" data-item="${esc(i.id)}">− ตัดจ่าย</button>` : ''}
@@ -494,7 +564,10 @@ th { background: var(--surface-2); color: var(--accent); }
     const from = h.from ? new Date(h.from + 'T00:00:00').getTime() : -Infinity;
     const to = h.to ? new Date(h.to + 'T23:59:59.999').getTime() : Infinity;
     const q = h.q.trim().toLowerCase();
+    const be = selFy();
+    const [fa, fb] = be ? fyRange(be) : [-Infinity, Infinity];
     return S.txns.filter(t => {
+      if (t.at < fa || t.at >= fb) return false;
       if (h.item !== 'all' && t.itemId !== h.item) return false;
       if (h.type !== 'all' && t.type !== h.type) return false;
       if (t.at < from || t.at > to) return false;
@@ -525,7 +598,8 @@ th { background: var(--surface-2); color: var(--accent); }
     const list = filteredTxns();
     const sIn = list.filter(t => t.type === 'in').reduce((a, t) => a + (+t.qty || 0), 0);
     const sOut = list.filter(t => t.type === 'out').reduce((a, t) => a + (+t.qty || 0), 0);
-    $('#histSum').textContent = `${fmtN(list.length)} รายการ · เติมรวม ${fmtN(sIn)} · ตัดจ่ายรวม ${fmtN(sOut)}`;
+    const hbe = selFy();
+    $('#histSum').textContent = `${hbe ? `ปีงบประมาณ ${hbe} (${fyRangeText(hbe)})` : 'ทุกปี'} · ${fmtN(list.length)} รายการ · เติมรวม ${fmtN(sIn)} · ตัดจ่ายรวม ${fmtN(sOut)}`;
     if (!list.length) { box.innerHTML = `<div class="empty-state"><strong>ยังไม่มีประวัติในช่วงนี้</strong><span>เมื่อกด “เติม” หรือ “ตัดจ่าย” ที่หน้าคงคลัง รายการจะมาแสดงที่นี่</span></div>`; return; }
     const LIM = 300;
     const rows = list.slice(0, LIM).map(t => {
@@ -763,25 +837,31 @@ th { background: var(--surface-2); color: var(--accent); }
   function openCard(itemId) {
     const it = itemById(itemId); if (!it) return;
     const b = balances()[itemId] || B0;
-    const st = statusOf(it, b);
-    const rows = S.txns.filter(t => t.itemId === itemId).sort((a, c) => a.at - c.at || (a.createdAt || 0) - (c.createdAt || 0));
-    let run = 0;
+    const be = selFy();
+    const [fa, fb] = be ? fyRange(be) : [-Infinity, Infinity];
+    const f = fyStats()[itemId] || F0;
+    const sb = isPastFy() ? { ...b, bal: f.bal } : b;
+    const st = statusOf(it, sb);
+    const rows = S.txns.filter(t => t.itemId === itemId && t.at >= fa && t.at < fb).sort((a, c) => a.at - c.at || (a.createdAt || 0) - (c.createdAt || 0));
+    let run = be ? f.open : 0;
+    const openRow = be ? `<tr class="open-row"><td>${esc(dShort.format(fa))}</td><td class="r"></td><td class="r"></td><td class="r"><b>${fmtN(f.open)}</b></td><td colspan="3">ยอดยกมาจากปีงบ ${be - 1}</td></tr>` : '';
     const lines = rows.map(t => {
       const q = Number(t.qty) || 0;
       run += t.type === 'out' ? -q : q;
       return `<tr><td class="num">${esc(dtf.format(t.at))}</td><td class="r">${t.type === 'in' ? `<span class="qty-in">${fmtN(q)}</span>` : t.type === 'adj' && q > 0 ? `<span class="qty-adj">+${fmtN(q)}</span>` : ''}</td><td class="r">${t.type === 'out' ? `<span class="qty-out">${fmtN(q)}</span>` : t.type === 'adj' && q < 0 ? `<span class="qty-adj">${fmtN(-q)}</span>` : ''}</td><td class="r"><b>${fmtN(run)}</b></td><td>${esc(t.ward || '—')}${t.type === 'adj' ? '<div class="sub">ตรวจนับ</div>' : ''}</td><td>${t.recorder ? esc(t.recorder) : userCell(t.by)}</td><td>${esc(t.note || '')}</td></tr>`;
-    }).reverse().join('');
+    }).reverse().join('') + openRow;
     const m = openModal(`
-      <div class="m-h"><div><div class="eyebrow">บัตรคุมวัสดุ · ลำดับ ${esc(it.no)}</div><h3>${esc(it.name)}</h3><div class="sub">${esc(it.category || '')} · หน่วยนับ ${esc(it.unit || '-')} · จุดสั่งซื้อ ${fmtN(it.min || 0)}</div></div><button class="x" type="button" data-close aria-label="ปิด">×</button></div>
+      <div class="m-h"><div><div class="eyebrow">บัตรคุมวัสดุ · ลำดับ ${esc(it.no)} · ${be ? `ปีงบประมาณ ${be}` : 'ทุกปี'}</div><h3>${esc(it.name)}</h3><div class="sub">${esc(it.category || '')} · หน่วยนับ ${esc(it.unit || '-')} · จุดสั่งซื้อ ${fmtN(it.min || 0)}</div></div><button class="x" type="button" data-close aria-label="ปิด">×</button></div>
       <div class="m-b">
-        ${!it.archived && needsReorder(b) ? reorderTag(b, it.unit) : ''}
+        ${!isPastFy() && !it.archived && needsReorder(b) ? reorderTag(b, it.unit) : ''}
         <div class="ledger-sum">
-          <div><div class="k">คงเหลือ</div><div class="v" style="color:var(--${st === 'empty' ? 'crit' : st === 'low' ? 'warn' : 'ink'})">${fmtN(b.bal)}</div></div>
-          <div><div class="k">รับเข้ารวม</div><div class="v" style="color:var(--in)">${fmtN(b.in)}</div></div>
-          <div><div class="k">จ่ายออกรวม</div><div class="v" style="color:var(--out)">${fmtN(b.out)}</div></div>
-          <div><div class="k">ปรับยอดตรวจนับ</div><div class="v" style="color:var(--adj)">${b.adj > 0 ? '+' : ''}${fmtN(b.adj)}</div></div>
+          ${be ? `<div><div class="k">ยกมา</div><div class="v">${fmtN(f.open)}</div></div>` : ''}
+          <div><div class="k">รับเข้า${be ? '' : 'รวม'}</div><div class="v" style="color:var(--in)">${fmtN(f.in)}</div></div>
+          <div><div class="k">จ่ายออก${be ? '' : 'รวม'}</div><div class="v" style="color:var(--out)">${fmtN(f.out)}</div></div>
+          <div><div class="k">ปรับยอดตรวจนับ</div><div class="v" style="color:var(--adj)">${f.adj > 0 ? '+' : ''}${fmtN(f.adj)}</div></div>
+          <div><div class="k">${isPastFy() ? `คงเหลือ ณ 30 ก.ย. ${String(be).slice(2)}` : 'คงเหลือ'}</div><div class="v" style="color:var(--${st === 'empty' ? 'crit' : st === 'low' ? 'warn' : 'ink'})">${fmtN(sb.bal)}</div></div>
         </div>
-        ${rows.length ? `<div class="ledger-wrap"><table><thead><tr><th>วันเวลา</th><th class="r">รับ</th><th class="r">จ่าย</th><th class="r">คงเหลือ</th><th>หน่วยงาน</th><th>ผู้บันทึก</th><th>หมายเหตุ</th></tr></thead><tbody>${lines}</tbody></table></div>` : `<div class="empty-state"><span>ยังไม่มีการเติมหรือตัดจ่ายรายการนี้</span></div>`}
+        ${rows.length || be ? `<div class="ledger-wrap"><table><thead><tr><th>วันเวลา</th><th class="r">รับ</th><th class="r">จ่าย</th><th class="r">คงเหลือ</th><th>หน่วยงาน</th><th>ผู้บันทึก</th><th>หมายเหตุ</th></tr></thead><tbody>${lines}</tbody></table></div>` : `<div class="empty-state"><span>ยังไม่มีการเติมหรือตัดจ่ายรายการนี้</span></div>`}
       </div>
       <div class="m-f">
         ${S.canWrite ? `<button class="btn ghost" type="button" data-edit="${esc(it.id)}">แก้ไขรายการ</button>` : ''}
@@ -804,10 +884,16 @@ th { background: var(--surface-2); color: var(--accent); }
     catch { toast('ส่งออกไฟล์ไม่ได้ในมุมมองนี้'); }
   }
   function exportStock() {
-    const bm = balances();
-    const rows = [['ลำดับ', 'รายการ', 'หมวด', 'หน่วย', 'รับรวม', 'จ่ายรวม', 'ปรับยอด', 'คงเหลือ', 'จุดสั่งซื้อ', 'สถานะ', 'ต้องจัดซื้อ']];
-    for (const i of activeItems()) { const b = bm[i.id] || B0; rows.push([i.no, i.name, i.category, i.unit, b.in, b.out, b.adj, b.bal, i.min || 0, STATUS[statusOf(i, b)], needsReorder(b) ? 'ต้องจัดซื้อ' : '']); }
-    offerCsv(`stock-${ymd()}.csv`, toCsv(rows));
+    const bm = balances(), fm = fyStats(), be = selFy(), past = isPastFy();
+    const rows = [
+      [be ? `ปีงบประมาณ ${be} (${fyRangeText(be)})` : 'ทุกปี'],
+      ['ลำดับ', 'รายการ', 'หมวด', 'หน่วย', 'ยกมา', 'รับ', 'จ่าย', 'ปรับยอด', past ? 'คงเหลือสิ้นปีงบ' : 'คงเหลือ', 'จุดสั่งซื้อ', 'สถานะ', 'ต้องจัดซื้อ'],
+    ];
+    for (const i of activeItems()) {
+      const f = fm[i.id] || F0, b = past ? { ...(bm[i.id] || B0), bal: f.bal } : (bm[i.id] || B0);
+      rows.push([i.no, i.name, i.category, i.unit, f.open, f.in, f.out, f.adj, b.bal, i.min || 0, STATUS[statusOf(i, b)], !past && needsReorder(b) ? 'ต้องจัดซื้อ' : '']);
+    }
+    offerCsv(`stock-${be ? 'FY' + be : 'all'}-${ymd()}.csv`, toCsv(rows));
   }
   async function exportHist() {
     const list = filteredTxns();
@@ -832,6 +918,16 @@ th { background: var(--surface-2); color: var(--accent); }
     const jump = el.closest('[data-jump]'); if (jump) { S.status = jump.dataset.jump; $('#fStatus').value = S.status; if (S.tab !== 'stock') $('#tab-stock').click(); else render(); return; }
     if (el.closest('[data-clear-filters]')) { S.q = ''; S.cat = 'all'; S.status = 'all'; $('#q').value = ''; $('#fStatus').value = 'all'; render(); return; }
     if (el.closest('#btnExportStock')) { exportStock(); return; }
+    if (el.closest('#btnFy')) { openFyPicker(); return; }
+    const fyo = el.closest('[data-fy]');
+    if (fyo) {
+      const v = fyo.dataset.fy;
+      S.fy = v === 'all' ? 'all' : (Number(v) === curFy() ? 'cur' : v);
+      try { localStorage.setItem('medstock.fy', S.fy); } catch {}
+      closeModal(); render();
+      toast(v === 'all' ? 'แสดงข้อมูลทุกปี' : `แสดงปีงบประมาณ ${v}`);
+      return;
+    }
     if (el.closest('#btnExportHist')) { exportHist(); return; }
     if (el.closest('[data-backup]')) { backup(); return; }
     if (el.closest('[data-restore]')) { $('#restoreFile').click(); return; }    const del = el.closest('[data-deltx]');
